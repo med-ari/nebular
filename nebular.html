@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulación 3D: Hipótesis Nebular</title>
+    <!-- Importar fuente retro -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0b1a; /* Fondo espacial profundo */
+            --text-color: #00ffcc; /* Cian retro */
+            --border-color: #00ffcc;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Press Start 2P', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 0px #000;
+        }
+
+        /* Lienzo pixel art estirado */
+        canvas {
+            width: 450px;
+            height: 450px;
+            background-color: #000;
+            border: 4px solid var(--border-color);
+            image-rendering: pixelated; /* Clave para el look de 8-bits */
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.5);
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            width: 650px;
+            max-width: 90%;
+            border: 2px dashed var(--border-color);
+            padding: 20px;
+            background: rgba(0, 20, 20, 0.8);
+            line-height: 1.5;
+            position: relative;
+        }
+
+        #fase-title {
+            color: #ffea00;
+            margin-top: 0;
+            font-size: 1.1rem;
+        }
+
+        #fase-desc {
+            font-size: 0.8rem;
+            min-height: 70px;
+            color: #ddd;
+        }
+
+        button {
+            background-color: var(--bg-color);
+            color: #fff;
+            border: 3px solid #fff;
+            padding: 15px 20px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 0.9rem;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background-color: #fff;
+            color: var(--bg-color);
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>SIMULADOR: HIPÓTESIS NEBULAR</h1>
+    
+    <canvas id="simCanvas" width="150" height="150"></canvas>
+
+    <div class="panel">
+        <h2 id="fase-title">Fase 1: Nube Nebular 3D</h2>
+        <p id="fase-desc">Una inmensa esfera caótica de gas y polvo flota en el espacio. Las partículas están esparcidas en todas las direcciones (arriba, abajo, izquierda, derecha).</p>
+        <button id="btn-next">SIGUIENTE FASE >></button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const btnNext = document.getElementById('btn-next');
+        const faseTitle = document.getElementById('fase-title');
+        const faseDesc = document.getElementById('fase-desc');
+
+        let faseActual = 1;
+        const centroX = canvas.width / 2;
+        const centroY = canvas.height / 2;
+
+        // Base de datos de textos para el docente
+        const textosFases = {
+            1: {
+                t: "Fase 1: Nube Nebular 3D",
+                d: "Una inmensa esfera caótica de gas y polvo flota en el espacio. Las partículas están esparcidas en todas las direcciones (volumen 3D)."
+            },
+            2: {
+                t: "Fase 2: Colapso en un PLANO",
+                d: "¡Gravedad y Conservación de momentum! Al girar más rápido, la nube se aplasta verticalmente formando un disco o PLANO perfecto."
+            },
+            3: {
+                t: "Fase 3: Nacimiento de la Estrella",
+                d: "El material en el centro se agrupa (Acreción Central). La presión enciende la estrella, viéndola crecer mientras absorbe polvo."
+            },
+            4: {
+                t: "Fase 4: Acreción Planetaria",
+                d: "Los remolinos de polvo barren su órbita. Observa cómo el material es tragado, haciendo crecer a los planetas y 'limpiando' el sistema."
+            }
+        };
+
+        let particulas = [];
+        let planetas = [];
+        let tamanoSol = 0;
+
+        // Configuración de vista Falso 3D
+        const TILT = 0.4; // Qué tan inclinado vemos el sistema (0 = de perfil, 1 = desde arriba)
+
+        // Inicializar la nube de polvo en forma de ESFERA (Fase 1)
+        function initParticulas() {
+            particulas = [];
+            tamanoSol = 0;
+            
+            // Crear partículas dentro de una esfera 3D
+            let creadas = 0;
+            while(creadas < 600) { // Aumentamos las partículas para que se vea mejor la acreción
+                let x = (Math.random() - 0.5) * 140;
+                let y = (Math.random() - 0.5) * 140; // Altura (3D)
+                let z = (Math.random() - 0.5) * 140;
+                
+                // Si está dentro del radio de la esfera (aprox 70)
+                if (x*x + y*y + z*z < 70*70) {
+                    let r_cilindrico = Math.sqrt(x*x + z*z);
+                    let theta = Math.atan2(z, x);
+                    
+                    particulas.push({
+                        r: Math.max(r_cilindrico, 3), // Radio orbital
+                        theta: theta, // Ángulo orbital
+                        y: y, // Altura respecto al plano ecuatorial
+                        vTheta: (Math.random() * 0.01) - 0.005, // Giro inicial lento y caótico
+                        color: Math.random() > 0.5 ? '#888' : '#bbb',
+                        activa: true
+                    });
+                    creadas++;
+                }
+            }
+        }
+
+        // Configurar los planetas (Aparecen invisibles y crecen en Fase 4)
+        function initPlanetas() {
+            planetas = [
+                { r: 20, theta: 0, vTheta: 0.08, col: '#8B4513', size: 0, maxSize: 3 }, // Rocoso 1
+                { r: 35, theta: 2, vTheta: 0.05, col: '#00FA9A', size: 0, maxSize: 4 }, // Rocoso 2 (Tierra)
+                { r: 55, theta: 4, vTheta: 0.03, col: '#FF4500', size: 0, maxSize: 7 }, // Gigante Gaseoso
+                { r: 70, theta: 1, vTheta: 0.02, col: '#1E90FF', size: 0, maxSize: 5 }  // Gigante Helado
+            ];
+        }
+
+        initParticulas();
+        initPlanetas();
+
+        function animar() {
+            // Fondo con efecto de estela (motion blur)
+            ctx.fillStyle = 'rgba(11, 11, 26, 0.35)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // DIBUJAR SOL (si ha empezado a formarse)
+            if (faseActual >= 2) {
+                // El sol crece de a poco según tamanoSol
+                if (tamanoSol > 0) {
+                    let brillo = (faseActual === 2) ? '#8B0000' : (Math.random() > 0.1 ? '#FFFF00' : '#FFA500');
+                    ctx.fillStyle = brillo;
+                    let s = Math.floor(tamanoSol);
+                    // Dibujar rectángulo centrado
+                    ctx.fillRect(centroX - s/2, centroY - s/2, s, s);
+                }
+            }
+
+            // ACTUALIZAR Y DIBUJAR POLVO
+            for (let i = 0; i < particulas.length; i++) {
+                let p = particulas[i];
+                if (!p.activa) continue;
+
+                // FASE 2: Colapso y aplanamiento en un PLANO
+                if (faseActual >= 2) {
+                    p.y *= 0.92; // La altura (Y) colapsa hacia 0 aplanando la nube
+                    
+                    // Se contraen un poco hacia el centro
+                    if (faseActual === 2 && p.r > 15) p.r -= 0.05; 
+                    
+                    // Aumentan la velocidad de giro (Momento angular)
+                    let velocidadObjetivo = 1.0 / p.r; 
+                    p.vTheta += (velocidadObjetivo - p.vTheta) * 0.05;
+                }
+
+                // FASE 3: Acreción del Sol (El material interior cae a la estrella)
+                if (faseActual === 3) {
+                    if (p.r < 18) {
+                        p.r *= 0.9; // Caen en espiral hacia el centro
+                        if (p.r < 2) {
+                            p.activa = false; // El sol se la "traga"
+                            if (tamanoSol < 12) tamanoSol += 0.1; // El sol CRECE
+                        }
+                    }
+                }
+                // FASE 4: Acreción de los planetas (barriendo su vecindad)
+                else if (faseActual === 4) {
+                    // Buscar si hay un planeta cerca de la órbita (r) de la partícula
+                    let planetaCercano = planetas.find(pl => Math.abs(p.r - pl.r) < 10);
+                    
+                    if (planetaCercano) {
+                        // La partícula es arrastrada hacia el radio orbital del planeta
+                        p.r += (planetaCercano.r - p.r) * 0.1;
+                        
+                        // Calculamos la distancia angular entre la partícula y el planeta
+                        let dTheta = planetaCercano.theta - p.theta;
+                        // Normalizar el ángulo para que tome el camino más corto
+                        dTheta = Math.atan2(Math.sin(dTheta), Math.cos(dTheta));
+                        
+                        // Si está cerca, es absorbida
+                        if (Math.abs(dTheta) < 0.2) {
+                            p.vTheta = planetaCercano.vTheta; // Sincroniza velocidad
+                            p.theta += dTheta * 0.2; // La "chupa" magnéticamente
+                            
+                            // Impacto con el planeta
+                            if (Math.abs(dTheta) < 0.05) {
+                                p.activa = false; // Partícula desaparece
+                                // El planeta CRECE al comer polvo
+                                if (planetaCercano.size < planetaCercano.maxSize) planetaCercano.size += 0.2;
+                            }
+                        }
+                    }
+                }
+
+                // Movimiento orbital básico
+                p.theta += p.vTheta;
+
+                // Proyección a 2D (Falso 3D)
+                let px_3d = p.r * Math.cos(p.theta);
+                let pz_3d = p.r * Math.sin(p.theta);
+                
+                // Magia isométrica: X es normal, Y se aplasta por el TILT, y restamos la altura real del polvo
+                let pantallaX = centroX + px_3d;
+                let pantallaY = centroY + (pz_3d * TILT) - p.y;
+
+                // Dibujar el grano de polvo
+                ctx.fillStyle = p.color;
+                ctx.fillRect(Math.floor(pantallaX), Math.floor(pantallaY), 1, 1);
+            }
+
+            // ACTUALIZAR Y DIBUJAR PLANETAS (Solo si tienen tamaño en la Fase 4)
+            if (faseActual === 4) {
+                for (let i = 0; i < planetas.length; i++) {
+                    let pl = planetas[i];
+                    pl.theta += pl.vTheta;
+                    
+                    if (pl.size > 0.5) {
+                        let px = pl.r * Math.cos(pl.theta);
+                        let pz = pl.r * Math.sin(pl.theta);
+                        
+                        let sx = centroX + px;
+                        let sy = centroY + (pz * TILT); // Usamos el mismo TILT para que orbiten en el plano
+
+                        ctx.fillStyle = pl.col;
+                        let s = Math.floor(pl.size);
+                        // Dibujar cuadrado del planeta
+                        ctx.fillRect(Math.floor(sx) - Math.floor(s/2), Math.floor(sy) - Math.floor(s/2), s, s);
+                    }
+                }
+            }
+
+            requestAnimationFrame(animar);
+        }
+
+        // Iniciar
+        animar();
+
+        // Máquina de estados con el botón
+        btnNext.addEventListener('click', () => {
+            if (faseActual < 4) {
+                faseActual++;
+                faseTitle.innerText = textosFases[faseActual].t;
+                faseDesc.innerText = textosFases[faseActual].d;
+
+                // Ajustes especiales al cambiar de fase
+                if (faseActual === 2) {
+                    tamanoSol = 2; // El centro se empieza a calentar (rojo)
+                }
+                if (faseActual === 3) {
+                    tamanoSol = 4; // Empieza amarillo
+                }
+
+                if (faseActual === 4) {
+                    btnNext.innerText = "FIN (REINICIAR)";
+                }
+            } else {
+                // Reinicio total
+                faseActual = 1;
+                initParticulas();
+                initPlanetas();
+                faseTitle.innerText = textosFases[1].t;
+                faseDesc.innerText = textosFases[1].d;
+                btnNext.innerText = "SIGUIENTE FASE >>";
+            }
+        });
+
+    </script>
+</body>
+</html>
